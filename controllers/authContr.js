@@ -1,8 +1,14 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const gravatar = require('gravatar');
 require("dotenv").config();
+const path = require('path');
+const fs = require('fs/promises');
+const Jimp = require('jimp');
 
 const { SECRET_KEY } = process.env;
+const avatarsDir = path.join(__dirname, '../', 'public', 'avatars');
+
 
 const { User } = require("../models/user");
 
@@ -16,8 +22,9 @@ const register = async (req, res) => {
     throw HttpError(409, "Email is already in use");
   }
   const hashPassword = await bcrypt.hash(password, 10);
+  const avatarURL = gravatar.url(email);
 
-  const newUser = await User.create({ ...req.body, password: hashPassword });
+  const newUser = await User.create({ ...req.body, password: hashPassword, avatarURL });
 
   res.status(201).json({
     user: {
@@ -26,6 +33,7 @@ const register = async (req, res) => {
     },
   });
 };
+
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -54,6 +62,7 @@ const login = async (req, res) => {
   });
 };
 
+
 const getCurrent = async (req, res) => {
   const { email, subscription } = req.user;
   res.status(200).json({
@@ -61,6 +70,7 @@ const getCurrent = async (req, res) => {
     subscription,
   })
 };
+
 
 const logout = async (req, res) => {
   const { _id } = req.user;
@@ -72,29 +82,68 @@ const logout = async (req, res) => {
 };
 
 
+// const updateSubscription = async (req, res) => {
+//   const { subscription } = req.body;
+
+//    try {
+//     // Перевірка, чи передано коректне значення підписки
+//      if (!["starter", "pro", "business"].includes(subscription)) {
+      
+//       return res.status(400).json({ error: "Invalid subscription value" });
+//     }
+
+//     // Оновлення підписки користувача
+//     const updatedUser = await User.findByIdAndUpdate(req.user.id, { subscription }, { new: true });
+
+//     res.status(200).json({
+//       email: updatedUser.email,
+//       subscription: updatedUser.subscription,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
+
+
+
+// або без використання try/catch
+
 const updateSubscription = async (req, res) => {
   const { subscription } = req.body;
-
-   try {
-    // Перевірка, чи передано коректне значення підписки
-     if (!["starter", "pro", "business"].includes(subscription)) {
-      
-      return res.status(400).json({ error: "Invalid subscription value" });
-    }
-
-    // Оновлення підписки користувача
+  if (["starter", "pro", "business"].includes(subscription)) {
     const updatedUser = await User.findByIdAndUpdate(req.user.id, { subscription }, { new: true });
-
     res.status(200).json({
       email: updatedUser.email,
       subscription: updatedUser.subscription,
     });
-  } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });
+
+}else {
+    throw HttpError(401, 'Invalid subscription value');
   }
 };
 
 
+const updateAvatar = async (req, res) => {
+  const { _id } = req.user;
+  const { path: tmpUpload, originalname } = req.file;
+   const img = await Jimp.read(tmpUpload);
+  await img
+    .autocrop()
+    .cover(250, 250, Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE)
+    .writeAsync(tmpUpload);
+
+  const filename = `${_id}_${originalname}`;
+  const resultUpload = path.join(avatarsDir, filename);
+
+  await fs.rename(tmpUpload, resultUpload);
+  const avatarURL = path.join('avatars', filename);
+  await User.findByIdAndUpdate(_id, { avatarURL });
+
+  res.status(200).json({
+    avatarURL,
+  })
+
+}
 
 module.exports = {
   register: ctrlWrapper(register),
@@ -102,4 +151,5 @@ module.exports = {
   getCurrent: ctrlWrapper(getCurrent),
   logout: ctrlWrapper(logout),
   updateSubscription: ctrlWrapper(updateSubscription),
+  updateAvatar: ctrlWrapper(updateAvatar),
 };
