@@ -13,7 +13,6 @@ const avatarsDir = path.join(__dirname, "../", "public", "avatars");
 const { User } = require("../models/user");
 
 const { HttpError, ctrlWrapper, sendEmail } = require("../helpers");
-const { assert } = require("console");
 
 const register = async (req, res) => {
   const { email, password } = req.body;
