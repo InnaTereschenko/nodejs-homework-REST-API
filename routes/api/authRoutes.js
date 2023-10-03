@@ -8,6 +8,11 @@ const ctrl = require('../../controllers/authContr');
 // маршрут для реєстрації
 router.post('/register', validateBody(schemas.registerSchema), ctrl.register);
 
+// маршрут для відправки email
+router.get('/verify/:verificationToken', ctrl.verifyEmail);
+// маршрут для повторної відправки email
+router.post('/verify', validateBody(schemas.emailSchema), ctrl.resendVerifyEmail);
+
 // маршрут для авторизації - логіну
 router.post('/login', validateBody(schemas.loginSchema), ctrl.login);
 
